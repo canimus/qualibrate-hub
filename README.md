@@ -35,3 +35,21 @@ cd qualibrate-hub/qualibrate-db
 docker build -t qualibrate-db:2.3.1 .
 
 ```
+
+#### tag and push
+```sh
+
+# Create the tagged image
+docker tag qualibrate-app:2.3.1 hub.qualibrate.org:5000/qualibrate-app:2.3.1
+
+# Pushing to registry
+docker push hub.qualibrate.org:5000/qualibrate-app:2.3.1
+
+
+# Create the tagged image
+docker tag qualibrate-db:2.3.1 hub.qualibrate.org:5000/qualibrate-db:2.3.1
+
+# Pushing to registry
+docker push hub.qualibrate.org:5000/qualibrate-db:2.3.1
+
+```
