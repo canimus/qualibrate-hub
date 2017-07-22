@@ -15,7 +15,7 @@ add-apt-repository ppa:certbot/certbot
 apt-get update
 apt-get -y install certbot
 
-certbot certonly --standalone -d hub.qualibrate.org -m herminio.vazquez@iovio.com --agree-tos
+certbot certonly --standalone -d hub.qualibrate.org -m info@qualibrate.com --agree-tos
 
 mkdir -p /home/ubuntu/certs
 cp /etc/letsencrypt/live/hub.qualibrate.org/privkey.pem /home/ubuntu/certs/domain.key
@@ -25,7 +25,7 @@ chmod 777 /home/ubuntu/certs/domain.key
 chmod -R 777 /home/ubuntu/certs
 
 mkdir -p /home/ubuntu/auth
-docker run --entrypoint htpasswd registry:2 -Bbn nasdaq Welcome2QFP#_7102 > auth/htpasswd
+docker run --entrypoint htpasswd registry:2 -Bbn USER PWD > auth/htpasswd
 chmod -R 777 /home/ubuntu/auth
 
 docker run -d -p 5000:5000 --restart=always --name qualibrate-hub -v /home/ubuntu/auth:/auth -e "REGISTRY_AUTH=htpasswd" -e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd  -v /home/ubuntu/certs:/certs -v /opt/docker-registry:/var/lib/registry -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key registry:2
