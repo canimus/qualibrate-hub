@@ -26,7 +26,6 @@ echo ""
 
 echo "Setting up dependencies, libraries and security"
 docker exec qualibrate-app bash -c '/opt/jboss/wildfly/bin/jboss-cli.sh  --user="admin" --password="admin" --connect --file=/tmp/setup.cli'
-sleep 5
 echo ""
 
 docker exec qualibrate-app bash -c '/opt/jboss/wildfly/bin/jboss-cli.sh  --user="admin" --password="admin" --connect --commands="deploy /tmp/QFP-${QUALIBRATE_VERSION}.ear"'
