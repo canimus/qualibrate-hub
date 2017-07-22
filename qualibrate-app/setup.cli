@@ -1,0 +1,123 @@
+module add --name=com.mysql --resources=/tmp/mysql-connector-java-5.1.22.jar --dependencies=javax.api,javax.transaction.api
+module add --name=h2qfp --resources=/tmp/h2-1.4.193.jar --dependencies=javax.api,javax.transaction.api,javax.servlet.api
+
+batch
+/subsystem=datasources/jdbc-driver=mysql:add(driver-module-name=com.mysql,driver-name=mysql,driver-xa-datasource-class-name=com.mysql.jdbc.Driver)
+/subsystem=datasources/jdbc-driver=h2qfp:add(driver-module-name=h2qfp,driver-name=h2qfp,driver-xa-datasource-class-name=com.mysql.jdbc.Driver)
+xa-data-source add --name=QFPHISTORYDS --jndi-name="java:jboss/datasources/QFPHISTORYDS" --driver-name=mysql --user-name=root --password=root --xa-datasource-class=com.mysql.jdbc.jdbc2.optional.MysqlXADataSource --enabled=true --use-java-context=true --use-ccm=true --xa-datasource-properties=[{Url=jdbc:mysql://qualibrate-db:3306/qfp_history}]
+xa-data-source add --name=QFPWORKSPACEDS --jndi-name="java:jboss/datasources/QFPWORKSPACEDS" --driver-name=mysql --enabled=true --use-java-context=true --use-ccm=true --user-name=root --password=root --xa-datasource-class=com.mysql.jdbc.jdbc2.optional.MysqlXADataSource --xa-datasource-properties=[{Url=jdbc:mysql://qualibrate-db:3306/qfp_active?characterEncoding=UTF-8}]
+xa-data-source add --name=QFPSECURITYDS --jndi-name="java:jboss/datasources/QFPSECURITYDS" --driver-name=h2qfp --user-name=sa --password=sa --xa-datasource-class=org.h2.jdbcx.JdbcDataSource  --xa-datasource-properties=[{Url=jdbc:h2:mem:qfp_security;DB_CLOSE_DELAY=-1}]
+run-batch
+
+data-source remove --name=ExampleDS
+reload
+/subsystem=datasources:read-resource(recursive=true)
+
+/system-property=org.apache.cxf.logging.enabled:add(value=true)
+/system-property=com.qfp.web.link:add(value=https://q01.qualibrate.com)
+/system-property=com.qfp.authentication.server.password_policy:add(value="(?=.{8,})(?=.*?[^\\w\\s])(?=.*?[0-9])(?=.*?[A-Z]).*?[a-z].*")
+/system-property=com.qfp.authentication.server.password_life:add(value=2629746000)
+/system-property=com.qfp.authentication.server.password_no_reuse_time:add(value=31556952000)
+/system-property=com.qfp.data.dir:add(value=/opt/qfp_data)
+
+/system-property=com.qfp.mail.ejb.support_mail_address:add(value="no-reply@qualibrate.com")
+/system-property=com.qfp.mail.ejb.support_mail_password:add(value="Iovio@123")
+/system-property=com.qfp.mail.ejb.support_mail_host:add(value="smtp.office365.com")
+/system-property=com.qfp.mail.ejb.support_mail_port:add(value="587")
+
+/extension=org.wildfly.extension.messaging-activemq:add
+
+batch
+/core-service=management/security-realm=QFPEJBRealm:add
+/core-service=management/security-realm=QFPEJBRealm/server-identity=secret:add(value="V2VsY29tZUAxMjM=")
+run-batch
+
+batch
+/core-service=management/security-realm=QFPSecurityRealm:add
+/core-service=management/security-realm=QFPSecurityRealm/server-identity=ssl:add(alias=value,keystore-relative-to="jboss.server.config.dir",alias="qualibrate.com",keystore-password="KT1=(icyn3t3?14!Kt",key-password="KT1=(icyn3t3?14!Kt",keystore-path="keystore.jks")
+/core-service=management/security-realm=QFPSecurityRealm/server-identity=ssl:write-attribute(name="protocol",value="TLSv1")
+run-batch
+
+
+/subsystem=logging/logger=org.atmosphere:add
+/subsystem=logging/logger=org.atmosphere:write-attribute(name="level", value="INFO")
+/subsystem=ejb3/service=iiop:add(enable-by-default=false,use-qualified-name=false)
+
+batch
+/subsystem=messaging-activemq:add
+/subsystem=messaging-activemq/server=default:add
+/subsystem=messaging-activemq/server=default:write-attribute(name="persistence-enabled", value="false")
+/subsystem=messaging-activemq/server=default/security-setting=#:add
+/subsystem=messaging-activemq/server=default/security-setting=#/role=mqusers:add(send="true",consume="true",create-non-durable-queue="true",delete-non-durable-queue="true")
+/subsystem=messaging-activemq/server=default/address-setting=#:add(dead-letter-address="jms.queue.DLQ", expiry-address="jms.queue.ExpiryQueue", expiry-delay=-1L, max-delivery-attempts="10", max-size-bytes="10485760", page-size-bytes="2097152", message-counter-history-day-limit="10")
+/subsystem=messaging-activemq/server=default/http-connector=http-connector:add(socket-binding="http", endpoint="http-acceptor")
+/subsystem=messaging-activemq/server=default/http-connector=http-connector-throughput:add(socket-binding="http", endpoint="http-acceptor-throughput" ,params={batch-delay="50"})
+/subsystem=messaging-activemq/server=default/in-vm-connector=in-vm:add(server-id="0")
+/subsystem=messaging-activemq/server=default/http-acceptor=http-acceptor:add(http-listener="default")
+/subsystem=messaging-activemq/server=default/http-acceptor=http-acceptor-throughput:add(http-listener="default", params={batch-delay="50", direct-deliver="false"})
+/subsystem=messaging-activemq/server=default/in-vm-acceptor=in-vm:add(server-id="0")
+/subsystem=messaging-activemq/server=default/jms-queue=ExpiryQueue:add(entries=["java:/jms/queue/ExpiryQueue"])
+/subsystem=messaging-activemq/server=default/jms-queue=DLQ:add(entries=["java:/jms/queue/DLQ"])
+run-batch
+
+reload
+
+/subsystem=messaging-activemq/server=default/connection-factory=InVmConnectionFactory:add(connectors=["in-vm"], entries=["java:/ConnectionFactory"])
+/subsystem=messaging-activemq/server=default/connection-factory=RemoteConnectionFactory:add(connectors=["http-connector"], entries = ["java:jboss/exported/jms/RemoteConnectionFactory"])
+/subsystem=messaging-activemq/server=default/pooled-connection-factory=activemq-ra:add(transaction="xa", connectors=["in-vm"], entries=["java:/JmsXA java:jboss/DefaultJMSConnectionFactory"])
+/subsystem=ee/service=default-bindings/:write-attribute(name="jms-connection-factory", value="java:jboss/DefaultJMSConnectionFactory")
+/subsystem=ejb3:write-attribute(name="default-resource-adapter-name", value="${ejb.resource-adapter-name:activemq-ra.rar}")
+/subsystem=ejb3:write-attribute(name="default-mdb-instance-pool", value="mdb-strict-max-pool")
+
+/subsystem=security/security-domain=QFPSecurity:add(cache-type=default)
+reload
+/subsystem=security/security-domain=QFPSecurity/authentication=classic: \
+    add( \
+        login-modules=[{ \
+            "code"=>"Database", \
+            "flag"=>"required", \
+            "module-options"=>[ \
+                ("dsJndiName"=>"java:jboss/datasources/QFPWORKSPACEDS"), \
+                ("principalsQuery"=>"select password from users where status = 'ACTIVE' and username=?"), \
+                ("rolesQuery"=>"select role as Role, 'Roles' as RoleGroup from users u where u.username =?"), \
+                ("hashAlgorithm"=>"MD5"), \
+                ("hashEncoding"=>"base64"), \
+                ("hashUserPassword"=>"true"), \
+                ("hashStorePassword"=>"false"), \
+                ("unauthenticatedIdentity"=>"guest") \
+                ] \
+            }])
+
+
+
+/subsystem=ee/service=default-bindings:write-attribute(name="datasource",value="java:jboss/datasources/QFPWORKSPACEDS")
+reload
+
+/subsystem=transactions:write-attribute(name=node-identifier,value="q01")
+
+
+/subsystem=undertow/server=default-server/http-listener=default:write-attribute(name=max-post-size,value="315621376")
+/subsystem=undertow/server=default-server/http-listener=default:undefine-attribute(name=redirect-socket)
+/subsystem=undertow/server=default-server/http-listener=default:undefine-attribute(name=enable-http2)
+
+/subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=max-post-size,value="315621376")
+/subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=security-realm,value="QFPSecurityRealm")
+
+/subsystem=undertow/server=default-server/host=default-host:write-attribute(name="alias",value=["q1.qualibrate.com"])
+/subsystem=undertow/server=default-server/host=default-host/location=\/:remove
+
+
+/subsystem=undertow/servlet-container=default/setting=jsp:write-attribute(name=x-powered-by,value=false)
+
+
+/subsystem=undertow/configuration=handler:remove
+/subsystem=undertow/configuration=filter/response-header=server-header:write-attribute(name="header-value",value="QFP")
+/subsystem=undertow/configuration=filter/response-header=x-powered-by-header:write-attribute(name="header-value",value="qualibrate")
+
+
+/subsystem=webservices:write-attribute(name="wsdl-host",value="jbossws.undefined.host")
+/subsystem=webservices:write-attribute(name="modify-wsdl-address",value="true")
+
+/interface=unsecure:add(inet-address="${jboss.bind.address.unsecure:127.0.0.1}")
+reload
+
