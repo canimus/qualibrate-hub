@@ -9,3 +9,29 @@ The first step requires the initialisation of a public instance where the regist
 
 ## Building Dockerfiles
 This repository contains also the Dockerfiles required to build the application from scratch. To do so, there is a missing component in this repository which is the .ear file that contains the platform software itself. For that you need to contact our __license__ terms.
+
+#### qualibrate-app
+```sh
+# Cloning this repository
+git clone https://github.com/canimus/qualibrate-hub
+
+# Locating the parent folder
+cd qualibrate-hub/qualibrate-app
+
+# Building the images
+docker build -t qualibrate-app:2.3.1 .
+
+```
+
+#### qualibrate-db
+```sh
+# Cloning this repository
+git clone https://github.com/canimus/qualibrate-hub
+
+# Locating the parent folder
+cd qualibrate-hub/qualibrate-db
+
+# Building the images
+docker build -t qualibrate-db:2.3.1 .
+
+```
